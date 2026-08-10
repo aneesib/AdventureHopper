@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownUser(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function verifiedElectrician() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/electricians/$(request.auth.uid))
+        && get(/databases/$(database)/documents/electricians/$(request.auth.uid)).data.isVerified == true;
+    }
+
+    match /users/{userId} {
+      allow create: if ownUser(userId)
+        && request.resource.data.role == 'CUSTOMER'
+        && request.resource.data.id == userId;
+      allow read: if ownUser(userId);
+      allow update: if ownUser(userId)
+        && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+
+      match /fcmTokens/{tokenId} {
+        allow read, write: if ownUser(userId);
+      }
+    }
+
+    match /electricians/{electricianId} {
+      allow read: if signedIn() && (resource.data.isVerified == true || electricianId == request.auth.uid);
+      allow create: if false;
+      allow update: if verifiedElectrician()
+        && electricianId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAvailable']);
+      allow delete: if false;
+    }
+
+    match /serviceRequests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.status == 'CREATED'
+        && (request.resource.data.assignedElectricianId == null
+          || (exists(/databases/$(database)/documents/electricians/$(request.resource.data.assignedElectricianId))
+            && get(/databases/$(database)/documents/electricians/$(request.resource.data.assignedElectricianId)).data.isVerified == true
+            && get(/databases/$(database)/documents/electricians/$(request.resource.data.assignedElectricianId)).data.isAvailable == true));
+      allow read: if signedIn()
+        && (resource.data.customerId == request.auth.uid
+          || resource.data.assignedElectricianId == request.auth.uid);
+      allow update: if signedIn() && (
+        (resource.data.customerId == request.auth.uid
+          && request.resource.data.customerId == resource.data.customerId
+          && request.resource.data.assignedElectricianId == resource.data.assignedElectricianId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+        || (verifiedElectrician()
+          && resource.data.assignedElectricianId == request.auth.uid
+          && request.resource.data.assignedElectricianId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedElectricianId']))
+      );
+      allow delete: if false;
+    }
+  }
+}

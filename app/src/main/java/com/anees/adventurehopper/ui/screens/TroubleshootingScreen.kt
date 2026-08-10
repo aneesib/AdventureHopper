@@ -34,19 +34,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.anees.adventurehopper.ui.diagnostic.DiagnosticCategory
+import com.anees.adventurehopper.ui.diagnostic.diagnosticCategories
 
 @Composable
-fun TroubleshootingScreen(onBack: () -> Unit) {
-    val issueTypes = listOf(
-        "💡 אין חשמל",
-        "🔌 שקע לא עובד",
-        "💡 תאורה לא עובדת",
-        "⚡ הפחת קופץ",
-        "🔥 ריח או חימום חשוד",
-        "🌀 מכשיר חשמלי",
-        "❓ משהו אחר"
-    )
-
+fun TroubleshootingScreen(
+    onBack: () -> Unit,
+    onCategorySelected: (DiagnosticCategory) -> Unit
+) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -85,8 +80,11 @@ fun TroubleshootingScreen(onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    issueTypes.forEach { issueType ->
-                        TroubleshootingCard(text = issueType)
+                    diagnosticCategories.forEach { category ->
+                        TroubleshootingCard(
+                            text = category.title,
+                            onClick = { onCategorySelected(category) }
+                        )
                     }
                 }
             }
@@ -95,7 +93,7 @@ fun TroubleshootingScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun TroubleshootingCard(text: String) {
+private fun TroubleshootingCard(text: String, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -111,7 +109,7 @@ private fun TroubleshootingCard(text: String) {
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = {}
+                onClick = onClick
             ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
