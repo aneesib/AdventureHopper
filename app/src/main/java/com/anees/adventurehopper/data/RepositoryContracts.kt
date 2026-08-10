@@ -6,6 +6,7 @@ import com.anees.adventurehopper.model.ServiceRequest
 import com.anees.adventurehopper.model.UserProfile
 
 interface AuthRepository {
+    fun ensureSignedIn(onResult: (Result<String>) -> Unit)
     fun ensureAnonymousUser(onResult: (Result<UserProfile>) -> Unit)
     fun currentUserId(): String?
 }

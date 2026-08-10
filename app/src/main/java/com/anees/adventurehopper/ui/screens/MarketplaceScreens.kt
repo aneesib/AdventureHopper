@@ -51,6 +51,8 @@ import com.anees.adventurehopper.model.ServiceRequest
 import com.anees.adventurehopper.model.ServiceRequestStatus
 import com.anees.adventurehopper.ui.diagnostic.DiagnosticCategory
 import com.anees.adventurehopper.ui.diagnostic.DiagnosticResult
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.firestore.FirebaseFirestoreException
 
 private val primaryBlue = Color(0xFF0B6E99)
 private val ink = Color(0xFF102A43)
@@ -69,7 +71,7 @@ fun ElectricianSearchScreen(
     var searchAttempt by remember { mutableStateOf(0) }
     LaunchedEffect(location, category, searchAttempt) {
         val auth = FirebaseAuthRepository(context)
-        auth.ensureAnonymousUser { authResult ->
+        auth.ensureSignedIn { authResult ->
             authResult.onSuccess {
                 FirebaseElectricianRepository(context).findElectriciansNearLocation(
                     location.latitude,
@@ -387,8 +389,16 @@ private fun DiagnosticCategory.serviceType(): ElectricianServiceType =
     com.anees.adventurehopper.model.serviceTypeForCategory(title)
 
 private fun Throwable.userMessage(): String =
-    if (message?.contains("configuration", ignoreCase = true) == true) {
-        "Firebase עדיין לא מוגדר באפליקציה. יש להוסיף google-services.json כדי להפעיל את השירות."
-    } else {
-        "אירעה שגיאה זמנית. בדוק את חיבור האינטרנט ונסה שוב."
+    when {
+        message?.contains("configuration", ignoreCase = true) == true ->
+            "Firebase עדיין לא מוגדר באפליקציה. יש להוסיף google-services.json כדי להפעיל את השירות."
+        this is FirebaseFirestoreException && code == FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+            "אין הרשאה לקרוא חשמלאים. יש לוודא שהכללים מאפשרים למשתמש מחובר לקרוא electricians מאומתים וזמינים."
+        this is FirebaseAuthException && errorCode == "ERROR_OPERATION_NOT_ALLOWED" ->
+            "המשתמש לא מחובר ל-Firebase. יש להפעיל Anonymous Authentication בפרויקט."
+        this is FirebaseFirestoreException && code == FirebaseFirestoreException.Code.FAILED_PRECONDITION ->
+            "Firestore דורש הגדרה נוספת בפרויקט Firebase. בדוק שהמסד פעיל והשאילתה נתמכת."
+        this is FirebaseFirestoreException && code == FirebaseFirestoreException.Code.UNAVAILABLE ->
+            "שירות Firebase אינו זמין כרגע. בדוק את חיבור האינטרנט ונסה שוב."
+        else -> "אירעה שגיאה ב-Firebase (${this::class.simpleName}: ${message ?: "ללא פרטים"}). נסה שוב."
     }

@@ -2,6 +2,7 @@ package com.anees.adventurehopper.data
 
 import android.content.Context
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.DocumentSnapshot
@@ -32,6 +33,24 @@ class FirebaseAuthRepository(
         get() = FirebaseAvailability.app(context)?.let { FirebaseAuth.getInstance(it) }
 
     override fun currentUserId(): String? = auth?.currentUser?.uid
+
+    override fun ensureSignedIn(onResult: (Result<String>) -> Unit) {
+        val firebaseAuth = auth
+        if (firebaseAuth == null) {
+            onResult(Result.failure(IllegalStateException("Firebase project configuration is missing.")))
+            return
+        }
+        firebaseAuth.currentUser?.let { user ->
+            onResult(Result.success(user.uid))
+            return
+        }
+        firebaseAuth.signInAnonymously()
+            .addOnSuccessListener { result ->
+                result.user?.uid?.let { onResult(Result.success(it)) }
+                    ?: onResult(Result.failure(IllegalStateException("Firebase authentication returned no user.")))
+            }
+            .addOnFailureListener { onResult(Result.failure(it)) }
+    }
 
     override fun ensureAnonymousUser(onResult: (Result<UserProfile>) -> Unit) {
         val firebaseAuth = auth
