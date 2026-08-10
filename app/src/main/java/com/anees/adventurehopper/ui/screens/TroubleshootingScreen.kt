@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +36,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun HomeScreen(onTroubleshootingClick: () -> Unit = {}) {
+fun TroubleshootingScreen(onBack: () -> Unit) {
+    val issueTypes = listOf(
+        "💡 אין חשמל",
+        "🔌 שקע לא עובד",
+        "💡 תאורה לא עובדת",
+        "⚡ הפחת קופץ",
+        "🔥 ריח או חימום חשוד",
+        "🌀 מכשיר חשמלי",
+        "❓ משהו אחר"
+    )
+
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -42,47 +55,39 @@ fun HomeScreen(onTroubleshootingClick: () -> Unit = {}) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 32.dp),
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Button(onClick = onBack) {
+                        Text(text = "חזרה")
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "⚡ חשמלאי בכיס",
+                    text = "🔌 יש לי תקלה",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF102A43)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "עזרה מהירה בתקלות חשמל",
+                    text = "בחר את סוג התקלה",
                     style = MaterialTheme.typography.titleMedium,
                     color = Color(0xFF52606D)
                 )
-                Spacer(modifier = Modifier.height(36.dp))
+                Spacer(modifier = Modifier.height(28.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    HomeActionCard(
-                        text = "🔌 יש לי תקלה",
-                        containerColor = Color(0xFF0B6E99),
-                        contentColor = Color.White,
-                        onClick = onTroubleshootingClick
-                    )
-                    HomeActionCard(
-                        text = "🏠 הבית שלי",
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF102A43)
-                    )
-                    HomeActionCard(
-                        text = "📋 התקלות שלי",
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF102A43)
-                    )
-                    HomeActionCard(
-                        text = "👨‍🔧 מצא חשמלאי",
-                        containerColor = Color(0xFFFFC857),
-                        contentColor = Color(0xFF102A43)
-                    )
+                    issueTypes.forEach { issueType ->
+                        TroubleshootingCard(text = issueType)
+                    }
                 }
             }
         }
@@ -90,44 +95,38 @@ fun HomeScreen(onTroubleshootingClick: () -> Unit = {}) {
 }
 
 @Composable
-private fun HomeActionCard(
-    text: String,
-    containerColor: Color,
-    contentColor: Color,
-    onClick: () -> Unit = {}
-) {
+private fun TroubleshootingCard(text: String) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
-        label = "home action press"
+        label = "troubleshooting card press"
     )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(78.dp)
+            .height(68.dp)
             .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = {}
             ),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = text,
-                color = contentColor,
-                fontSize = 20.sp,
+                color = Color(0xFF102A43),
+                fontSize = 19.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
