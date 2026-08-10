@@ -27,7 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,15 +79,20 @@ fun ElectricianRequestScreen(
         locationState = if (granted) LocationUiState.LOADING else LocationUiState.DENIED
     }
 
-    LaunchedEffect(permissionGranted) {
-        if (permissionGranted) {
+    DisposableEffect(permissionGranted) {
+        if (!permissionGranted) {
+            onDispose { }
+        } else {
             locationState = LocationUiState.LOADING
-            approximateLocation = LocationService.getApproximateLocation(context)
-            locationState = if (approximateLocation != null) {
-                LocationUiState.LOCATED
-            } else {
-                LocationUiState.UNAVAILABLE
+            val cancelLocationRequest = LocationService.requestCurrentApproximateLocation(context) { location ->
+                approximateLocation = location
+                locationState = if (location != null) {
+                    LocationUiState.LOCATED
+                } else {
+                    LocationUiState.UNAVAILABLE
+                }
             }
+            onDispose { cancelLocationRequest() }
         }
     }
 

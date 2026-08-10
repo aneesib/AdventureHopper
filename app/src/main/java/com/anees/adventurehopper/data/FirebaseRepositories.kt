@@ -1,7 +1,9 @@
 package com.anees.adventurehopper.data
 
 import android.content.Context
+import android.util.Log
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.DocumentSnapshot
@@ -18,6 +20,8 @@ import com.anees.adventurehopper.model.UserProfile
 import com.anees.adventurehopper.model.UserRole
 import kotlin.math.*
 
+private const val MAX_ELECTRICIAN_DISTANCE_KM = 50.0
+
 object FirebaseAvailability {
     fun app(context: Context): FirebaseApp? =
         FirebaseApp.getApps(context).firstOrNull() ?: FirebaseApp.initializeApp(context)
@@ -32,6 +36,33 @@ class FirebaseAuthRepository(
         get() = FirebaseAvailability.app(context)?.let { FirebaseAuth.getInstance(it) }
 
     override fun currentUserId(): String? = auth?.currentUser?.uid
+
+    override fun ensureSignedIn(onResult: (Result<String>) -> Unit) {
+        val firebaseAuth = auth
+        if (firebaseAuth == null) {
+            onResult(Result.failure(IllegalStateException("Firebase project configuration is missing.")))
+            return
+        }
+        firebaseAuth.currentUser?.let { user ->
+            Log.d("FirebaseAuthFlow", "Existing Firebase user: ${user.uid}")
+            onResult(Result.success(user.uid))
+            return
+        }
+        firebaseAuth.signInAnonymously()
+            .addOnSuccessListener {
+                val authenticatedUser = firebaseAuth.currentUser
+                Log.d(
+                    "FirebaseAuthFlow",
+                    "Anonymous sign-in completed: FirebaseAuth.currentUser=${authenticatedUser?.uid ?: "null"}"
+                )
+                authenticatedUser?.uid?.let { uid ->
+                    onResult(Result.success(uid))
+                } ?: onResult(
+                    Result.failure(IllegalStateException("Firebase sign-in completed without a current user."))
+                )
+            }
+            .addOnFailureListener { onResult(Result.failure(it)) }
+    }
 
     override fun ensureAnonymousUser(onResult: (Result<UserProfile>) -> Unit) {
         val firebaseAuth = auth
@@ -91,6 +122,11 @@ class FirebaseElectricianRepository(
             onResult(Result.failure(IllegalStateException("Firebase project configuration is missing.")))
             return
         }
+        val authUser = FirebaseAvailability.app(context)?.let { FirebaseAuth.getInstance(it).currentUser }
+        Log.d(
+            "ElectricianSearch",
+            "Before electricians query: FirebaseAuth.currentUser=${authUser?.uid ?: "null"}"
+        )
         database.collection("electricians")
             .whereEqualTo("isAvailable", true)
             .whereEqualTo("isVerified", true)
@@ -99,10 +135,24 @@ class FirebaseElectricianRepository(
                 val results = snapshot.documents.mapNotNull { it.toElectrician() }
                     .filter { serviceType.key in it.serviceTypes.map(ElectricianServiceType::key) }
                     .map { it.copy(distanceKm = distanceKm(latitude, longitude, it.latitude, it.longitude)) }
+                    .filter { electrician ->
+                        electrician.distanceKm?.let { distance ->
+                            distance.isFinite() && distance <= MAX_ELECTRICIAN_DISTANCE_KM
+                        } == true
+                    }
                     .sortedBy { it.distanceKm }
                 onResult(Result.success(results))
             }
-            .addOnFailureListener { onResult(Result.failure(it)) }
+            .addOnFailureListener {
+                onResult(
+                    Result.failure(
+                        IllegalStateException(
+                            "Firestore electricians query failed; currentUser=${authUser?.uid ?: "null"}; ${it.message}",
+                            it
+                        )
+                    )
+                )
+            }
     }
 
     override fun observeIncomingRequests(

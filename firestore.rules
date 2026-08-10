@@ -31,7 +31,9 @@ service cloud.firestore {
     }
 
     match /electricians/{electricianId} {
-      allow read: if signedIn() && (resource.data.isVerified == true || electricianId == request.auth.uid);
+      allow read: if signedIn()
+        && resource.data.isVerified == true
+        && resource.data.isAvailable == true;
       allow create: if false;
       allow update: if verifiedElectrician()
         && electricianId == request.auth.uid
